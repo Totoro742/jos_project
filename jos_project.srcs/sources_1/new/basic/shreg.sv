@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 04/28/2023 10:00:42 AM
+// Create Date: 03/15/2023 04:05:47 PM
 // Design Name: 
-// Module Name: spi
+// Module Name: shreg
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -20,10 +20,21 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module char2pixels(
-    input clk,
-    input rst,
-    input in,
-    output out
+module shreg(
+    input clk, rst, en, sin,
+    output [7:0] leds
     );
+    
+    // Shift_Register
+    logic [7:0] shr;    
+        
+    always @(posedge clk, posedge rst)
+        if(rst)
+            shr <= 8'b0;
+        else if(en)
+            shr <= { shr[6:0], sin };
+    
+    assign leds = shr;
+    
+    
 endmodule
