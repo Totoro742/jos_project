@@ -87,4 +87,11 @@ module fsm_init(input clk, input rst, input in, output out);
         else
             cnt_cmd <= cnt_cmd + 1;
 
+    always @(posedge clk, posedge rst) begin
+        if(rst)
+            curr_state = In_Idle;
+        else
+            curr_state = next_state;     
+    end
+
 endmodule
