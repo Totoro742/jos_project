@@ -4,8 +4,7 @@
 // do poprawy
 module counter #(parameter slow_clk=2**16, dl=15, nbt=2)(
     input clk, rst, butt_add, butt_sub,
-    output [7:0] leds
-    );
+    output [7:0] leds);
     
 
     logic [nbt-1:0] butt_deb;
