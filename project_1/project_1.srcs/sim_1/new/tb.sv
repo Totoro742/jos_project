@@ -33,8 +33,8 @@ logic fin;
 
 spi_slave #(.bits(bits), .ndr(ndr)) slave (.cs(s), .sclk(sclk), .mosi(mosi), .miso(miso));
     
-spi #(.bits(bits)) master (.clk(clk), .rst(rst), .en(en), .miso(miso), .clr_ctrl(clr_ctrl), 
-.data2trans(data2trans), .clr(clr), .ss(s), .sclk(sclk), .mosi(mosi), .data_rec(data_rec));
+spi #(.bits(bits)) master (.clk(clk), .rst(rst), .en(en), .miso(miso), .clr_ctrl(clr_ctrl), .data2trans(data2trans),
+.clr(clr), .ss(s), .sclk(sclk), .mosi(mosi), .data_rec(data_rec));
 
 
 initial $readmemh("data.mem", data);

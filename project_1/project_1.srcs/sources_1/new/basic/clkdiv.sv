@@ -8,6 +8,7 @@ module clkdiv #(parameter div=50_000_000) (
     localparam nb = $clog2(div);
     // Counter
     logic [nb-1:0] cnt;
+    
     always @(posedge clk, posedge rst)
         if(rst)
             cnt <= {nb{ 1'b0 }};
