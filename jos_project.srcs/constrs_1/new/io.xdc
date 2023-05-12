@@ -10,6 +10,15 @@ set_property PACKAGE_PIN AA11 [get_ports {datain0}];  # "JA2"
 set_property PACKAGE_PIN Y10  [get_ports {datain1}];  # "JA3"
 set_property PACKAGE_PIN AA9  [get_ports {sclk}];  # "JA4"
 set_property PACKAGE_PIN R16 [get_ports {enable}];  # "BTND"
+# ----------------------------------------------------------------------------
+# OLED Display - Bank 13
+# ---------------------------------------------------------------------------- 
+set_property PACKAGE_PIN U10  [get_ports {OLED_DC}];  # "OLED-DC"
+set_property PACKAGE_PIN U9   [get_ports {OLED_RES}];  # "OLED-RES"
+set_property PACKAGE_PIN AB12 [get_ports {OLED_SCLK}];  # "OLED-SCLK"
+set_property PACKAGE_PIN AA12 [get_ports {OLED_SDIN}];  # "OLED-SDIN"
+set_property PACKAGE_PIN U11  [get_ports {OLED_VBAT}];  # "OLED-VBAT"
+set_property PACKAGE_PIN U12  [get_ports {OLED_VDD}];  # "OLED-VDD"
 
 
 # ----------------------------------------------------------------------------
