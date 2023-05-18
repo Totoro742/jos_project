@@ -72,8 +72,8 @@ assign mosi = shr[bits-1];
 always @(posedge clk, posedge rst)
     if(rst)
         shr <= {bits{1'b0}};
-    else if(en)
-        shr <= data2trans;
+    //else if(en)
+    //    shr <= data2trans;
     else if(spi_en)
         shr <= {shr[bits-2:0],miso};
     //generator zezwolenia zapisu na wyjście

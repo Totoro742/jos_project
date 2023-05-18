@@ -4,42 +4,33 @@ typedef enum {Dly_Idle, Dly_Hold, Dly_Done} delay_state_t;
 
 
 module delay #(parameter delay_ms = 1) (input clk, input rst, input en, output out);
-    logic cnt_ms, del, fin;
+    logic cnt_ms, fin;
+    logic delay_rst, delay_en;
     delay_state_t curr_state, next_state;
     
-    assign out = del;
+    assign out = fin;
     
+    clkdiv #(.div(100_000)) delay_1ms(.clk(clk), .rst(delay_rst), .en(delay_en));
+
     
-    initial begin
-        curr_state = Dly_Idle;
-        del = 0;
-        fin = 0;
-   end
-    
-    // ?????
-    always @(posedge clk, posedge rst) begin
-        if(rst)
-            del = 0;
-        else
-            if(en && ~fin)
-                del = 1;
-            else if(fin)
-                del = 0;         
-    end
-    
-    always @(posedge clk) begin
+    always @* begin
         next_state = Dly_Idle;
         case(curr_state)
             Dly_Idle: begin
-                fin = 0;
-                if(en) next_state = Dly_Hold;
+                if(en) begin
+                    fin = 1'b0;
+                    cnt_ms = 1'b0;
+                    next_state = Dly_Hold;
+                    delay_rst = 1'b1;
+                end
             end
             Dly_Hold: begin
+                delay_rst = 1'b0;
                 if(cnt_ms == delay_ms) next_state = Dly_Done;
-                else delay_1ms cnt_1ms (.clk(clk), .rst(rst), .en(del));
+                else if(delay_en) cnt_ms = cnt_ms + 1'b1;
             end
             Dly_Done: begin
-                fin = 1;
+                fin = 1'b1;
                 if(~en) next_state = Dly_Idle;
             end
         endcase
@@ -52,10 +43,4 @@ module delay #(parameter delay_ms = 1) (input clk, input rst, input en, output o
             curr_state = next_state;     
     end
     
-    always @(posedge clk, posedge rst)
-        if(rst)
-            cnt_ms <= 0;
-        else
-            cnt_ms <= cnt_ms + 1;
-            
 endmodule
