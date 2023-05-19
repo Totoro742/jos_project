@@ -4,7 +4,7 @@ typedef enum {In_Idle, In_Decision, In_Spi, In_Power,
  In_WaitPre, In_Delay, In_Clear, In_Done} init_state_t;
 
     
-logic cmd_list[16] = {
+logic [8:0] cmd_list[16] = {
     9'h100, 9'h0AE,
     9'h102, 9'h103,
     9'h08D, 9'h014,
@@ -53,7 +53,7 @@ logic cmd_list[16] = {
 module fsm_init(input clk, input rst, input en, output out, output logic vdd, output logic res, output logic vbat);
     //logic vdd, res, vbat;
     logic spi_fin, delay_fin, delay_en, delay_rst;
-    logic cnt_cmd;
+    logic [3:0] cnt_cmd;
     logic [8:0] cmd;
     logic spi_en, spi_en_r;
     logic fin;
@@ -68,11 +68,14 @@ module fsm_init(input clk, input rst, input en, output out, output logic vdd, ou
     logic [bits-1:0] data2trans;
     wire [bits-1:0] data_rec;
     reg [bits-1:0] sh_reg;
-    
+    logic [2:0] cnt_spi;
+    logic [7:0] leds;
 
     assign out = fin;
     assign s = cs;
     assign spi_en = spi_en_r;
+    assign sin = cmd[cnt_spi];
+    assign mosi = leds[7];
     
     // en - potrzebne do licznika bitow - uruchomienie transmisji
     // miso - input
@@ -82,11 +85,11 @@ module fsm_init(input clk, input rst, input en, output out, output logic vdd, ou
     // mosi - output
     // data_rec - input
     // data2trans  - niestosowane
-    spi #(.bits(bits)) master_oled (.clk(clk), .rst(rst), .en(spi_en), .miso(), .clr_ctrl(clr_ctrl), .data2trans(data2trans),
+    spi #(.bits(bits)) master_oled (.clk(clk), .rst(rst), .en(spi_en), .miso(), .clr_ctrl(clr_ctrl), .data2trans(),
     .clr(clr), .ss(s), .sclk(sclk), .mosi(mosi), .data_rec(data_rec), .fin(spi_fin));
     
    // clkdiv #(.div(20)) divider(.clk(clk), .rst(rst), .en(spi_en)); // dodanie en i out - out = spi_en, en = spi_en_r
-    
+    shreg shift(.clk(clk), .rst(rst), .en(spi_en), .sin(sin), .leds(leds));
     
 
     delay #(.delay_ms(delay_ms)) waiter(.clk(clk), .rst(delay_rst), .en(delay_en), .out(delay_fin));
@@ -96,7 +99,7 @@ module fsm_init(input clk, input rst, input en, output out, output logic vdd, ou
         case(curr_state)
             In_Idle: begin
                 fin = 1'b0;
-                if(en || cmd) next_state = In_Decision;
+                if(en || cnt_cmd) next_state = In_Decision;
             end
             In_Decision: 
                 if(cmd[8] == 0) begin
@@ -124,7 +127,7 @@ module fsm_init(input clk, input rst, input en, output out, output logic vdd, ou
             end
             In_WaitPre: begin
                 if(cmd != 9'h103)begin 
-                    defparam waiter.delay_ms = (cmd == 9'h104) ? 100 : 1;
+                    //waiter.delay_ms = (cmd == 9'h104) ? 100 : 1;
                     delay_rst = 1'b1;
                     delay_en = 1'b1;
                     next_state = In_Delay;
@@ -140,8 +143,12 @@ module fsm_init(input clk, input rst, input en, output out, output logic vdd, ou
                     next_state = In_Clear;
                 end
             end
-            In_Clear: if(cnt_cmd < nbcmd) next_state = In_Done;
-                        else cnt_cmd = cnt_cmd + 1'b1;
+            In_Clear: 
+                if(cnt_cmd < nbcmd) begin
+                    cnt_cmd = cnt_cmd + 1'b1;
+                    next_state = In_Idle;
+                end
+                else next_state = In_Done;
             In_Done: begin
                 fin = 1'b1;
                 cnt_cmd = 1'b0;
@@ -150,7 +157,7 @@ module fsm_init(input clk, input rst, input en, output out, output logic vdd, ou
         endcase
 
 
-    always @* begin
+    always @(posedge clk, posedge rst) begin
         if(rst) cmd <= cmd_list[0];
         else    cmd <= cmd_list[cnt_cmd];
     end
@@ -160,18 +167,20 @@ module fsm_init(input clk, input rst, input en, output out, output logic vdd, ou
         if(rst) begin
             cnt_cmd <= 0;
             curr_state <= In_Idle;
-            cs = 1'b1;
         end
         else
             curr_state <= next_state;     
     end
 
-    logic [5:0] cnt_spi;
-    localparam max_spi = 32;
+    
+    localparam max_spi = 8;
     always @(posedge clk, posedge rst, posedge sclk) begin
         if(rst) cnt_spi = 0;
-        if(sclk) 
-            if(cnt_spi < max_spi) cnt_spi = cnt_spi + 1;
+        if(sclk & spi_en_r) 
+            if(cnt_spi < max_spi)begin
+             
+             cnt_spi = cnt_spi + 1;
+            end
             else cnt_spi = 0;
     end
 

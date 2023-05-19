@@ -4,7 +4,8 @@ typedef enum {Dly_Idle, Dly_Hold, Dly_Done} delay_state_t;
 
 
 module delay #(parameter delay_ms = 1) (input clk, input rst, input en, output out);
-    logic cnt_ms, fin;
+    logic [$clog2(delay_ms):0] cnt_ms;
+    logic fin;
     logic delay_rst, delay_en;
     delay_state_t curr_state, next_state;
     
@@ -14,14 +15,14 @@ module delay #(parameter delay_ms = 1) (input clk, input rst, input en, output o
 
     
     always @* begin
-        next_state = Dly_Idle;
+        //next_state = Dly_Idle;
         case(curr_state)
             Dly_Idle: begin
+                fin = 1'b0;
+                cnt_ms = 1'b0;
+                delay_rst = 1'b1;
                 if(en) begin
-                    fin = 1'b0;
-                    cnt_ms = 1'b0;
                     next_state = Dly_Hold;
-                    delay_rst = 1'b1;
                 end
             end
             Dly_Hold: begin
@@ -38,9 +39,9 @@ module delay #(parameter delay_ms = 1) (input clk, input rst, input en, output o
     
     always @(posedge clk, posedge rst) begin
         if(rst)
-            curr_state = Dly_Idle;
+            curr_state <= Dly_Idle;
         else
-            curr_state = next_state;     
+            curr_state <= next_state;     
     end
     
 endmodule

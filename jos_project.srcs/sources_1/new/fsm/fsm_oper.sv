@@ -22,7 +22,7 @@ module fsm_oper(input clk, input rst, input en, output out);
         case(curr_state) 
             Op_Idle: begin
                 cnt_screen = {n{ 1'b0 }};
-                delay_ms = 500;
+                //delay_ms = 500;
                 if(en) next_state = Op_Screen;
             end
             Op_Screen: begin
