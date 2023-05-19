@@ -1,5 +1,5 @@
 module spi #(parameter bits = 8) (input clk, rst, en, miso, clr_ctrl, input [bits-1:0] data2trans,
-output clr, ss, sclk, mosi, output reg [bits-1:0] data_rec);
+output clr, ss, sclk, mosi, output reg [bits-1:0] data_rec, output reg fin);
 //Parametry czasu trwania:
 //m - czas jednego bitu (w połowie zbocze opadające sclk)
 //d - opóźnienia na początku
@@ -44,6 +44,8 @@ always @(posedge clk, posedge rst)
             cnt <= {bm{1'b0}};
         else
             cnt <= cnt + 1'b1;
+// zakonczenie transmisji
+assing fin = (st == progr)?1'b0:1'b1;
 //logika sygnałów wyjściowych
 assign clr = (st == shdown)?1'b1:1'b0;
 //chip select

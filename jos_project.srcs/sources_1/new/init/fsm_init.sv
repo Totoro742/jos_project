@@ -50,12 +50,12 @@ logic cmd_list[16] = {
 
 
 // output dc ?
-module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
-    logic vdd, res, vbat;
+module fsm_init(input clk, input rst, input en, output out, output logic vdd, output logic res, output logic vbat);
+    //logic vdd, res, vbat;
     logic spi_fin, delay_fin, delay_en, delay_rst;
     logic cnt_cmd;
     logic [8:0] cmd;
-    logic spi_en, spi_en_r; // czy jest ot potrzebne????
+    logic spi_en, spi_en_r;
     logic fin;
     logic cs, s;
 
@@ -74,14 +74,18 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
     assign s = cs;
     assign spi_en = spi_en_r;
     
-    // do poprawy
-    // data2transfer nie jest wypelniane
-    // transmisja nie jest odpowiednio kontrolowana
-    // en odpowiada za potwierdzenie wpisu do pamieci
+    // en - potrzebne do licznika bitow - uruchomienie transmisji
+    // miso - input
+    // clr_ctrl, clr - niepotrzebne
+    // ss, sclk - generowane przez slave przy transmisji
+    // fin - informuje o zakonczeniu transmisji
+    // mosi - output
+    // data_rec - input
+    // data2trans  - niestosowane
     spi #(.bits(bits)) master_oled (.clk(clk), .rst(rst), .en(spi_en), .miso(), .clr_ctrl(clr_ctrl), .data2trans(data2trans),
-    .clr(clr), .ss(s), .sclk(sclk), .mosi(mosi), .data_rec(data_rec));
+    .clr(clr), .ss(s), .sclk(sclk), .mosi(mosi), .data_rec(data_rec), .fin(spi_fin));
     
-    clkdiv #(.div(20)) divider(.clk(clk), .rst(rst), .en(spi_en));
+   // clkdiv #(.div(20)) divider(.clk(clk), .rst(rst), .en(spi_en)); // dodanie en i out - out = spi_en, en = spi_en_r
     
     
 
@@ -96,7 +100,7 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
             end
             In_Decision: 
                 if(cmd[8] == 0) begin
-                    cs = 1'b0;
+                    //cs = 1'b0;
                     next_state = In_Spi;
                 end
                 else if(cmd[8] == 1)
@@ -105,7 +109,7 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
                 spi_en_r = 1'b1;
                 if(spi_fin) begin
                     spi_en_r = 1'b0;
-                    cs = 1'b1;
+                    //cs = 1'b1;
                     next_state = In_Clear;
                 end
             end
@@ -120,10 +124,10 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
             end
             In_WaitPre: begin
                 if(cmd != 9'h103)begin 
-                    //delay_ms = (cmd == 9'h104) ? 100 : 1;
-                    next_state = In_Delay;
+                    defparam waiter.delay_ms = (cmd == 9'h104) ? 100 : 1;
                     delay_rst = 1'b1;
                     delay_en = 1'b1;
+                    next_state = In_Delay;
                 end
                 else begin 
                     next_state = In_Clear;
