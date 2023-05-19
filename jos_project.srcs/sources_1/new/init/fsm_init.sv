@@ -55,9 +55,9 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
     logic spi_fin, delay_fin, delay_en, delay_rst;
     logic cnt_cmd;
     logic [8:0] cmd;
-    logic spi_en; // czy jest ot potrzebne????
+    logic spi_en, spi_en_r; // czy jest ot potrzebne????
     logic fin;
-    logic cs;
+    logic cs, s;
 
     localparam nbcmd = 16;
     init_state_t curr_state, next_state;
@@ -71,14 +71,19 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
     
 
     assign out = fin;
-
+    assign s = cs;
+    assign spi_en = spi_en_r;
+    
     // do poprawy
     // data2transfer nie jest wypelniane
     // transmisja nie jest odpowiednio kontrolowana
     // en odpowiada za potwierdzenie wpisu do pamieci
     spi #(.bits(bits)) master_oled (.clk(clk), .rst(rst), .en(spi_en), .miso(), .clr_ctrl(clr_ctrl), .data2trans(data2trans),
-    .clr(clr), .ss(cs), .sclk(sclk), .mosi(mosi), .data_rec(data_rec));
-
+    .clr(clr), .ss(s), .sclk(sclk), .mosi(mosi), .data_rec(data_rec));
+    
+    clkdiv #(.div(20)) divider(.clk(clk), .rst(rst), .en(spi_en));
+    
+    
 
     delay #(.delay_ms(delay_ms)) waiter(.clk(clk), .rst(delay_rst), .en(delay_en), .out(delay_fin));
 
@@ -97,10 +102,10 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
                 else if(cmd[8] == 1)
                     next_state = In_Power;
             In_Spi: begin
-                spi_en = 1'b1;
+                spi_en_r = 1'b1;
                 if(spi_fin) begin
-                    spi_en = 1'b0;
-                    cs = 1'b0;
+                    spi_en_r = 1'b0;
+                    cs = 1'b1;
                     next_state = In_Clear;
                 end
             end
@@ -151,9 +156,19 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
         if(rst) begin
             cnt_cmd <= 0;
             curr_state <= In_Idle;
+            cs = 1'b1;
         end
         else
             curr_state <= next_state;     
+    end
+
+    logic [5:0] cnt_spi;
+    localparam max_spi = 32;
+    always @(posedge clk, posedge rst, posedge sclk) begin
+        if(rst) cnt_spi = 0;
+        if(sclk) 
+            if(cnt_spi < max_spi) cnt_spi = cnt_spi + 1;
+            else cnt_spi = 0;
     end
 
 endmodule

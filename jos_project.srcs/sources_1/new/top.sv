@@ -1,7 +1,10 @@
 `timescale 1ns / 1ps
 
 // enable nie uzywane
-module top( input clk, rst, output cs, sclk, input enable, output wire [7:0] leds,input datain0, input datain1);
+module top( input clk, rst, output wire [7:0] leds,
+            output oled_dc, output oled_res, output oled_sclk, output oled_sdin, output oled_vbat, output oled_vdd,
+            output cs, sclk, input enable, input datain0, input datain1);
+    
     localparam bits = 16, ndr = 5;
     
     logic clr_ctrl, clr;
@@ -15,5 +18,8 @@ module top( input clk, rst, output cs, sclk, input enable, output wire [7:0] led
     assign leds=data_rec[9:2];
     
     clkdiv #(.div(20)) divider(.clk(clk), .rst(rst), .en(en));
+    
+    
+    //fsm_init oled_init(.clk(clk), .rst(rst), .en(), .out(), .vdd(oled_vdd), .res(oled_res), .vbat(oled_vbat));
     
 endmodule
