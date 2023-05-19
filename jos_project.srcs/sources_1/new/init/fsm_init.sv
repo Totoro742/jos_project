@@ -57,6 +57,7 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
     logic [8:0] cmd;
     logic spi_en; // czy jest ot potrzebne????
     logic fin;
+    logic cs;
 
     localparam nbcmd = 16;
     init_state_t curr_state, next_state;
@@ -79,7 +80,7 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
     .clr(clr), .ss(cs), .sclk(sclk), .mosi(mosi), .data_rec(data_rec));
 
 
-    delay #(.delay_ms(delay_ms)) wait(.clk(clk), .rst(delay_rst), .en(delay_en), .out(delay_fin));
+    delay #(.delay_ms(delay_ms)) waiter(.clk(clk), .rst(delay_rst), .en(delay_en), .out(delay_fin));
 
 
     always @*
@@ -89,9 +90,10 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
                 if(en || cmd) next_state = In_Decision;
             end
             In_Decision: 
-                if(cmd[8] == 0)
+                if(cmd[8] == 0) begin
                     cs = 1'b0;
                     next_state = In_Spi;
+                end
                 else if(cmd[8] == 1)
                     next_state = In_Power;
             In_Spi: begin
@@ -113,7 +115,7 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
             end
             In_WaitPre: begin
                 if(cmd != 9'h103)begin 
-                    delay_ms = (cmd == 9'h104) ? 100 : 1;
+                    //delay_ms = (cmd == 9'h104) ? 100 : 1;
                     next_state = In_Delay;
                     delay_rst = 1'b1;
                     delay_en = 1'b1;
@@ -130,7 +132,7 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
                 end
             end
             In_Clear: if(cnt_cmd < nbcmd) next_state = In_Done;
-                        else cnt_cmd + 1'b1;
+                        else cnt_cmd = cnt_cmd + 1'b1;
             In_Done: begin
                 fin = 1'b1;
                 cnt_cmd = 1'b0;
@@ -146,9 +148,10 @@ module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
 
 
     always @(posedge clk, posedge rst) begin
-        if(rst)
+        if(rst) begin
             cnt_cmd <= 0;
             curr_state <= In_Idle;
+        end
         else
             curr_state <= next_state;     
     end

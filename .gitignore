@@ -2,6 +2,9 @@
 jos_project.cache
 jos_project.hw
 jos_project.sim
+jos_project.ip_user_files
+jos_project.runs
+
 **.jou
 **.log
 **.str
