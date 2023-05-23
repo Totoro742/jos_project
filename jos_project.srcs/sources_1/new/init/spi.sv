@@ -16,6 +16,14 @@ logic [bdcnt:0] dcnt;
 logic tmp, tm, cnten;
 
 always @(posedge clk, posedge rst)
+    fin <= 1'b0;
+    if(rst)
+        fin <= 1'b0;
+    else if(st == shdown)
+        fin <= 1'b1;
+
+
+always @(posedge clk, posedge rst)
     if(rst)
         st <= idle;
     else
