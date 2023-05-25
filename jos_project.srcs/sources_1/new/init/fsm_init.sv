@@ -24,7 +24,7 @@ logic [8:0] cmd_list[16] = {
     //                gdzie ab = 01 - vertical addr mode
     //                gdzie ab = 10 - page addr mode (reset)
     //                gdzie ab = 11 - invalid
-    // h014 - 0001abcd gdzie abcd = 0000 - (reset) set higher column for start address in page addressing mode
+    // h014 - 0001abcd gdzie abcd = 0000 - (reset) set higher column for start address in page addrespushg mode
     // h0da - 11011010 ?
     //        - 00ab0010 gdzie a = 0 - reset, disable com left/right remap
     //                          a = 1 - enable com left/right map
@@ -62,20 +62,22 @@ module fsm_init(input clk, input rst, input en, output out, output logic vdd, ou
     localparam nbcmd = 16;
     init_state_t curr_state, next_state;
     
-    localparam delay_ms = 1;
+  //  localparam delay_ms = 1;
     localparam bits = 8;
     logic clr_ctrl, clr;
     logic [bits-1:0] data2trans;
     wire [bits-1:0] data_rec;
     reg [bits-1:0] sh_reg;
     logic [2:0] cnt_spi;
-    logic [7:0] leds;
+    logic [7:0] out_reg;
+
+    logic [8:0] spi_max = 8;
 
     assign out = fin;
     assign s = cs;
-    assign spi_en = spi_en_r;
-    assign sin = cmd[cnt_spi];
-    assign mosi = leds[7];
+   // assign spi_en = spi_en_r;
+    assign push = cmd[cnt_spi];
+    assign mosi = out_reg[7];
     
     // en - potrzebne do licznika bitow - uruchomienie transmisji
     // miso - input
@@ -85,14 +87,15 @@ module fsm_init(input clk, input rst, input en, output out, output logic vdd, ou
     // mosi - output
     // data_rec - input
     // data2trans  - niestosowane
-    spi #(.bits(bits)) master_oled (.clk(clk), .rst(rst), .en(spi_en), .miso(), .clr_ctrl(clr_ctrl), .data2trans(),
-    .clr(clr), .ss(s), .sclk(sclk), .mosi(mosi), .data_rec(data_rec), .fin(spi_fin));
+    spi #(.bits(bits)) master_oled (.clk(clk), .rst(rst), .en(spi_en),
+     .miso(), .clr_ctrl(), .data2trans(data2trans), .clr(),
+      .ss(s), .sclk(sclk), .mosi(mosi), .data_rec(data_rec), .fin(spi_fin));
     
    // clkdiv #(.div(20)) divider(.clk(clk), .rst(rst), .en(spi_en)); // dodanie en i out - out = spi_en, en = spi_en_r
-    shreg shift(.clk(clk), .rst(rst), .en(spi_en), .sin(sin), .leds(leds));
+    shreg #(.size(8)) shift(.clk(clk), .rst(rst), .en(spi_en && clk), .push(push), .out_reg(out_reg));
     
 
-    delay #(.delay_ms(delay_ms)) waiter(.clk(clk), .rst(delay_rst), .en(delay_en), .out(delay_fin));
+    delay #(.delay_ms(1)) waiter(.clk(clk), .rst(delay_rst), .en(delay_en), .out(delay_fin));
 
 
     always @*
@@ -109,9 +112,13 @@ module fsm_init(input clk, input rst, input en, output out, output logic vdd, ou
                 else if(cmd[8] == 1)
                     next_state = In_Power;
             In_Spi: begin
-                spi_en_r = 1'b1;
+//                spi_en_r = 1'b1;
+                data2trans = cmd;
+                spi_en = 1'b1;
                 if(spi_fin) begin
-                    spi_en_r = 1'b0;
+//                    spi_en_r = 1'b0;
+                    spi_en = 1'b0;
+
                     //cs = 1'b1;
                     next_state = In_Clear;
                 end
@@ -127,7 +134,7 @@ module fsm_init(input clk, input rst, input en, output out, output logic vdd, ou
             end
             In_WaitPre: begin
                 if(cmd != 9'h103)begin 
-                    //waiter.delay_ms = (cmd == 9'h104) ? 100 : 1;
+                    spi_max = (cmd == 9'h104) ? 100 : 1;
                     delay_rst = 1'b1;
                     delay_en = 1'b1;
                     next_state = In_Delay;
@@ -172,16 +179,23 @@ module fsm_init(input clk, input rst, input en, output out, output logic vdd, ou
             curr_state <= next_state;     
     end
 
-    
-    localparam max_spi = 8;
-    always @(posedge clk, posedge rst, posedge sclk) begin
-        if(rst) cnt_spi = 0;
-        if(sclk & spi_en_r) 
-            if(cnt_spi < max_spi)begin
-             
-             cnt_spi = cnt_spi + 1;
-            end
-            else cnt_spi = 0;
+
+ /*   always @(posedge clk, posedge rst) begin
+        if(rst) cnt_spi <= 0;
+        else if(spi_en_r) 
+            if(cnt_spi < spi_max)
+                cnt_spi <= cnt_spi + 1;
+            else 
+                cnt_spi <= 0;
     end
+
+    always @(posedge clk, posedge rst) begin
+        if(rst)
+        else
+            miso <= ;
+    
+    end
+*/
+
 
 endmodule

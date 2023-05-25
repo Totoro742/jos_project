@@ -1,5 +1,6 @@
 `timescale 1ns / 1ps
 
+
 module clkdiv #(parameter div=50_000_000) (
     input clk, rst,
     output logic en);

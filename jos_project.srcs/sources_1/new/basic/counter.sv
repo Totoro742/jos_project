@@ -1,27 +1,22 @@
 `timescale 1ns / 1ps
 
-
-// do poprawy
-module counter #(parameter slow_clk=2**16, dl=15, nbt=2)(
-    input clk, rst, butt_add, butt_sub,
-    output [7:0] leds);
-    
-
-    logic [nbt-1:0] butt_deb;
-    wire [nbt-1:0] butt_in = {butt_add, butt_sub};
-    
-    wire plus = butt_deb[0];
-    wire minus = butt_deb[1];
-    
-    logic [7:0] cnt;
-    assign leds = cnt;
-    
-    always @(posedge clk)
+// po odliczeniu czasu - jeden impuls
+module counter #(parameter cnt_max=2)(
+    input clk, rst, en,
+    output out_reg);
+     
+    localparam cnt_max_bit = $clog2(cnt_max);
+    logic [cnt_max_bit-1:0] cnt;
+        
+    always @(posedge clk, posedge rst)
         if(rst)
-            cnt <= 8'b0;
-        else if (plus)
-            cnt <= cnt + 1'b1;
-        else if (minus)
-            cnt <= cnt - 1'b1;
-            
+            cnt <= { cnt_max_bit {1'b0}};
+        else if (en)
+            if(cnt >= cnt_max)
+                cnt <= {cnt_max_bit {1'b0}};
+            else
+                cnt <= cnt + 1'b1;
+
+    assign out_reg = (cnt == cnt_max-1);
+
 endmodule
