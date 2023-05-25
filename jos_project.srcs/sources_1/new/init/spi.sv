@@ -15,13 +15,13 @@ logic [bm-1:0] cnt;
 logic [bdcnt:0] dcnt;
 logic tmp, tm, cnten;
 
-always @(posedge clk, posedge rst)
+always @(posedge clk, posedge rst) begin
     fin <= 1'b0;
     if(rst)
         fin <= 1'b0;
-    else if(st == shdown)
+    else if((dcnt == {(bdcnt+1){1'd0}}))
         fin <= 1'b1;
-
+    end
 
 always @(posedge clk, posedge rst)
     if(rst)
@@ -53,7 +53,7 @@ always @(posedge clk, posedge rst)
         else
             cnt <= cnt + 1'b1;
 // zakonczenie transmisji
-assign fin = (st == progr)?1'b0:1'b1;
+//assign fin = (st == progr)?1'b0:1'b1;
 //logika sygnałów wyjściowych
 assign clr = (st == shdown)?1'b1:1'b0;
 //chip select

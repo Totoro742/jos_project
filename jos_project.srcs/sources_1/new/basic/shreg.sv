@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 
-module shreg #(parameter size = 8;) (
+module shreg #(parameter size = 8) (
     input clk, rst, en, push,
     output [size-1:0] out_reg
     );

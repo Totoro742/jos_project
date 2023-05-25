@@ -14,7 +14,7 @@ module oled_init_tb();
         #20 rst = 0;
         #20 en = 1;
         #100 en = 0;
-        #1_000 $finish;
+        #5_000_000 $finish;
     end
 
     initial begin
