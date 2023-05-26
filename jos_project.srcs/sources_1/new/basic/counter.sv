@@ -1,19 +1,22 @@
 `timescale 1ns / 1ps
 
-
-module shreg #(parameter size = 8) (
-    input clk, rst, en, push,
-    output [size-1:0] out_reg
-    );
-    
-    logic [size-1:0] shr;    
+// po odliczeniu czasu - jeden impuls
+module counter #(parameter cnt_max=2)(
+    input clk, rst, en,
+    output out_reg);
+     
+    localparam cnt_max_bit = $clog2(cnt_max);
+    logic [cnt_max_bit-1:0] cnt;
         
     always @(posedge clk, posedge rst)
         if(rst)
-            shr <= {size {1'b0}};
-        else if(en)
-            shr <= { shr[size-2:0], push };
-    
-    assign out_reg = shr;
-       
+            cnt <= { cnt_max_bit {1'b0}};
+        else if (en)
+            if(cnt >= cnt_max)
+                cnt <= {cnt_max_bit {1'b0}};
+            else
+                cnt <= cnt + 1'b1;
+
+    assign out_reg = (cnt == cnt_max-1);
+
 endmodule
