@@ -51,7 +51,10 @@ logic [8:0] cmd_list[16] = {
 
 // output dc ?
 module fsm_init
-    (input clk, input rst, input en, output out, output logic vdd, output logic res, output logic vbat);
+    (input clk, input rst, input en, output out,
+     output logic vdd, output logic res, output logic vbat,
+     input oled_fin, output logic oled_en, output logic [7:0] oled_data);
+     
     logic spi_fin, delay_fin, delay_en, delay_rst;
     logic [4:0] cnt_cmd;
     logic [8:0] cmd;
@@ -72,11 +75,15 @@ module fsm_init
 
     logic [8:0] spi_max = 8;
 
+    assign oled_data = data2trans;
+    assign oled_en = spi_en;
+    assign spi_fin = oled_fin;
+
     assign out = fin;
     assign s = cs;
    // assign spi_en = spi_en_r;
-    assign push = cmd[cnt_spi];
-    assign mosi = out_reg[7];
+    //assign push = cmd[cnt_spi];
+    //assign mosi = out_reg[7];
     
     // en - potrzebne do licznika bitow - uruchomienie transmisji
     // miso - input
@@ -88,7 +95,7 @@ module fsm_init
     // data2trans  - niestosowane
     spi #(.bits(bits)) master_oled (.clk(clk), .rst(rst), .en(spi_en),
      .miso(), .clr_ctrl(), .data2trans(data2trans), .clr(),
-      .ss(s), .sclk(sclk), .mosi(mosi), .data_rec(data_rec), .fin(spi_fin));
+      .ss(s), .sclk(sclk), .mosi(), .data_rec(), .fin(spi_fin));
     
    // clkdiv #(.div(20)) divider(.clk(clk), .rst(rst), .en(spi_en)); // dodanie en i out - out = spi_en, en = spi_en_r
     shreg #(.size(8)) shift(.clk(clk), .rst(rst), .en(spi_en && clk), .push(push), .out_reg(out_reg));
@@ -121,8 +128,8 @@ module fsm_init
             In_Power: begin
                 case (cmd)
                     9'h100: vdd = 1'b0;
-                    9'h102: res = 1'b1;
-                    9'h103: res = 1'b0;
+                    9'h102: res = 1'b0;
+                    9'h103: res = 1'b1;
                     9'h104: vbat = 1'b0;
                 endcase
                 next_state = In_WaitPre;
