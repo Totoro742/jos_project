@@ -3,8 +3,15 @@
 typedef enum {In_Idle, In_Decision, In_Spi, In_Power,
  In_WaitPre, In_Delay, In_Clear, In_Done} init_state_t;
 
-    
-logic [8:0] cmd_list[16] = {
+
+
+
+module fsm_init
+    (input clk, input rst, input en, output out,
+     output logic vdd, output logic res, output logic vbat,
+     input oled_fin, output logic oled_en, output logic [7:0] oled_data);
+     
+    logic [8:0] cmd_list[16] = {
     9'h100, 9'h0AE,
     9'h102, 9'h103,
     9'h08D, 9'h014,
@@ -13,14 +20,8 @@ logic [8:0] cmd_list[16] = {
     9'h00F, 9'h0A1,
     9'h0C8, 9'h0DA,
     9'h020, 9'h0AF
-};
+    };  
 
-
-
-module fsm_init
-    (input clk, input rst, input en, output out,
-     output logic vdd, output logic res, output logic vbat,
-     input oled_fin, output logic oled_en, output logic [7:0] oled_data);
      
     logic spi_fin, delay_fin, delay_en, delay_rst;
     logic [4:0] cnt_cmd;
@@ -42,32 +43,30 @@ module fsm_init
 
     logic [8:0] spi_max = 8;
 
-    assign oled_data = data2trans;
-    assign oled_en = spi_en;
-    assign spi_fin = oled_fin;
-
     assign out = fin;
     assign s = cs;
    // assign spi_en = spi_en_r;
     //assign push = cmd[cnt_spi];
     //assign mosi = out_reg[7];
     
+       
 
-    spi #(.bits(bits)) master_oled
-     (.clk(clk), .rst(rst), .en(spi_en),
-     .miso(), .clr_ctrl(), .data2trans(data2trans), .clr(),
-      .ss(s), .sclk(sclk), .mosi(), .data_rec(), .fin(spi_fin));
+//    spi #(.bits(bits)) master_oled
+//     (.clk(clk), .rst(rst), .en(oled_en),
+//     .miso(), .clr_ctrl(), .data2trans(oled_data), .clr(),
+//      .ss(s), .sclk(sclk), .mosi(), .data_rec(), .fin(oled_fin)); // spi_fin
     
-    shreg #(.size(8)) shift(.clk(clk), .rst(rst), .en(spi_en && clk), .push(push), .out_reg(out_reg));
+    //shreg #(.size(8)) shift(.clk(clk), .rst(rst), .en(oled_en && clk), .push(push), .out_reg(out_reg));
     
     delay #(.delay_ms(1)) waiter(.clk(clk), .rst(delay_rst), .en(delay_en), .out(delay_fin));
 
 
 // fsm
-    always @*
+    always @* begin
         case(curr_state)
             In_Idle: begin
                 fin = 1'b0;
+
                 if(en || cnt_cmd) next_state = In_Decision;
             end
             In_Decision: 
@@ -77,10 +76,10 @@ module fsm_init
                 else if(cmd[8] == 1)
                     next_state = In_Power;
             In_Spi: begin
-                data2trans = cmd;
-                spi_en = 1'b1;
-                if(spi_fin) begin
-                    spi_en = 1'b0;
+                oled_data = cmd;
+                oled_en = 1'b1;
+                if(oled_fin) begin
+                    oled_en = 1'b0;
 
                     next_state = In_Clear;
                 end
@@ -124,17 +123,18 @@ module fsm_init
                 if(~en) next_state = In_Idle;
             end
         endcase
-    
+        if(rst)
+            cnt_cmd <= 5'b0;     
+end    
     always @(posedge clk, posedge rst) begin
         if(rst) begin
-            cnt_cmd <= 0;
             curr_state <= In_Idle;
         end
         else
             curr_state <= next_state;     
     end
 
-
+           
 // cmd
     always @(posedge clk, posedge rst) begin
         if(rst) cmd <= cmd_list[0];
