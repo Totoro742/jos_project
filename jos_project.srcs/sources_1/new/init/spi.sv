@@ -1,4 +1,4 @@
-module spi #(parameter bits = 8) (input clk, rst, en, miso, clr_ctrl, input [bits-1:0] data2trans,
+module spi #(parameter bits = 8, mode = 0) (input clk, rst, en, miso, clr_ctrl, input [bits-1:0] data2trans,
 output clr, ss, sclk, mosi, output reg [bits-1:0] data_rec, output reg fin);
 //Parametry czasu trwania:
 //m - czas jednego bitu (w połowie zbocze opadające sclk)
@@ -82,8 +82,8 @@ assign mosi = shr[bits-1];
 always @(posedge clk, posedge rst)
     if(rst)
         shr <= {bits{1'b0}};
-    //else if(en)
-    //    shr <= data2trans;
+    else if(en && mode)
+        shr <= data2trans;
     else if(spi_en)
         shr <= {shr[bits-2:0],miso};
     //generator zezwolenia zapisu na wyjście
@@ -97,7 +97,7 @@ assign en_out = ss & ~tm;
 always @(posedge clk, posedge rst)
     if(rst)
         data_rec <= {bits{1'b0}};
-    else if(en_out)
+    else if(en_out && ~mode)
         data_rec <= shr;
     //rejestr wyjściowy
 endmodule

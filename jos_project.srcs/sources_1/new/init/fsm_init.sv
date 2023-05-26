@@ -16,40 +16,7 @@ logic [8:0] cmd_list[16] = {
 };
 
 
-    // ========== SPI ===============
-    // h0ae - 1010111x gdzie x = 0 display off
-    // h0af - 1010111x gdzie x = 1 display on
-    // h0a1 - 1010000x gdzie x = 0 (reset) adres 0 jest zamapowany na seg0    
-    // h020 - 001000ab gdzie ab = 00 - horizontal addr mode
-    //                gdzie ab = 01 - vertical addr mode
-    //                gdzie ab = 10 - page addr mode (reset)
-    //                gdzie ab = 11 - invalid
-    // h014 - 0001abcd gdzie abcd = 0000 - (reset) set higher column for start address in page addrespushg mode
-    // h0da - 11011010 ?
-    //        - 00ab0010 gdzie a = 0 - reset, disable com left/right remap
-    //                          a = 1 - enable com left/right map
-    //                          b = 0 - sequentail com pin configuration
-    //                          b = 1 - reset, alterenatirve com left/right remap
-    // h0c8 - 1100x000 gdzie x = 1 - remap mode. scan from com[n-1] to com0 (n - multiplex ratio)
-    // h00f - 0000abcd gdzie abcd - 0000 - on reset, set lower nibble of the column start address register for page ddress mode
-    // h081 - 10000001
-    //          -abcdefgh - set contrast value reset = 0x7h
-    // h0f1 - ?? - wyglada ze jest to opisane w 0d9
-    // h0d9 - 11011011
-    //          abcdefgh - abcd - dlugosc fazy 1 przed naladowaniem 1-15 cykli zegara
-    //                      efgh -||- 2 -||- - reset w oby 0x02
-    // h08d - 10001101
-    //          **010x00 gdzie x - 0 disable charge pump (reset)
-    //                              1 enable charge pump during display on
 
-
-
-//logic values[16] = {
-//    
-//};
-
-
-// output dc ?
 module fsm_init
     (input clk, input rst, input en, output out,
      output logic vdd, output logic res, output logic vbat,
@@ -85,25 +52,18 @@ module fsm_init
     //assign push = cmd[cnt_spi];
     //assign mosi = out_reg[7];
     
-    // en - potrzebne do licznika bitow - uruchomienie transmisji
-    // miso - input
-    // clr_ctrl, clr - niepotrzebne
-    // ss, sclk - generowane przez slave przy transmisji
-    // fin - informuje o zakonczeniu transmisji
-    // mosi - output
-    // data_rec - input
-    // data2trans  - niestosowane
-    spi #(.bits(bits)) master_oled (.clk(clk), .rst(rst), .en(spi_en),
+
+    spi #(.bits(bits)) master_oled
+     (.clk(clk), .rst(rst), .en(spi_en),
      .miso(), .clr_ctrl(), .data2trans(data2trans), .clr(),
       .ss(s), .sclk(sclk), .mosi(), .data_rec(), .fin(spi_fin));
     
-   // clkdiv #(.div(20)) divider(.clk(clk), .rst(rst), .en(spi_en)); // dodanie en i out - out = spi_en, en = spi_en_r
     shreg #(.size(8)) shift(.clk(clk), .rst(rst), .en(spi_en && clk), .push(push), .out_reg(out_reg));
     
-
     delay #(.delay_ms(1)) waiter(.clk(clk), .rst(delay_rst), .en(delay_en), .out(delay_fin));
 
 
+// fsm
     always @*
         case(curr_state)
             In_Idle: begin
@@ -164,14 +124,7 @@ module fsm_init
                 if(~en) next_state = In_Idle;
             end
         endcase
-
-
-    always @(posedge clk, posedge rst) begin
-        if(rst) cmd <= cmd_list[0];
-        else    cmd <= cmd_list[cnt_cmd];
-    end
-
-
+    
     always @(posedge clk, posedge rst) begin
         if(rst) begin
             cnt_cmd <= 0;
@@ -182,4 +135,55 @@ module fsm_init
     end
 
 
+// cmd
+    always @(posedge clk, posedge rst) begin
+        if(rst) cmd <= cmd_list[0];
+        else    cmd <= cmd_list[cnt_cmd];
+    end
+
 endmodule
+
+
+
+
+    // en - potrzebne do licznika bitow - uruchomienie transmisji
+    // miso - input
+    // clr_ctrl, clr - niepotrzebne
+    // ss, sclk - generowane przez slave przy transmisji
+    // fin - informuje o zakonczeniu transmisji
+    // mosi - output
+    // data_rec - input
+    // data2trans  - niestosowane
+    // DO SPI
+
+    // ========== SPI ===============
+    // h0ae - 1010111x gdzie x = 0 display off
+    // h0af - 1010111x gdzie x = 1 display on
+    // h0a1 - 1010000x gdzie x = 0 (reset) adres 0 jest zamapowany na seg0    
+    // h020 - 001000ab gdzie ab = 00 - horizontal addr mode
+    //                gdzie ab = 01 - vertical addr mode
+    //                gdzie ab = 10 - page addr mode (reset)
+    //                gdzie ab = 11 - invalid
+    // h014 - 0001abcd gdzie abcd = 0000 - (reset) set higher column for start address in page addrespushg mode
+    // h0da - 11011010 ?
+    //        - 00ab0010 gdzie a = 0 - reset, disable com left/right remap
+    //                          a = 1 - enable com left/right map
+    //                          b = 0 - sequentail com pin configuration
+    //                          b = 1 - reset, alterenatirve com left/right remap
+    // h0c8 - 1100x000 gdzie x = 1 - remap mode. scan from com[n-1] to com0 (n - multiplex ratio)
+    // h00f - 0000abcd gdzie abcd - 0000 - on reset, set lower nibble of the column start address register for page ddress mode
+    // h081 - 10000001
+    //          -abcdefgh - set contrast value reset = 0x7h
+    // h0f1 - ?? - wyglada ze jest to opisane w 0d9
+    // h0d9 - 11011011
+    //          abcdefgh - abcd - dlugosc fazy 1 przed naladowaniem 1-15 cykli zegara
+    //                      efgh -||- 2 -||- - reset w oby 0x02
+    // h08d - 10001101
+    //          **010x00 gdzie x - 0 disable charge pump (reset)
+    //                              1 enable charge pump during display on
+
+
+
+//logic values[16] = {
+//    
+//};
