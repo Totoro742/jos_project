@@ -12,14 +12,22 @@ module top( input clk, rst, output wire [7:0] leds,
     wire [bits-1:0] data_rec;
     reg [bits-1:0] sh_reg;
     
-    spi #(.bits(bits)) master (.clk(clk), .rst(rst), .en(en), .miso(datain0), .clr_ctrl(clr_ctrl), .data2trans(data2trans),
-    .clr(clr), .ss(cs), .sclk(sclk), .mosi(mosi), .data_rec(data_rec));
+    spi #(.bits(bits), .mode(0)) adc_master (.clk(clk), .rst(rst), .en(en), .miso(datain0), .clr_ctrl(), .data2trans(),
+    .clr(), .ss(cs), .sclk(sclk), .mosi(), .data_rec(data_rec));
     
     assign leds=data_rec[9:2];
     
     clkdiv #(.div(20)) divider(.clk(clk), .rst(rst), .en(en));
     
     
-    //fsm_init oled_init(.clk(clk), .rst(rst), .en(), .out(), .vdd(oled_vdd), .res(oled_res), .vbat(oled_vbat));
+    spi #(.bits(bits),  .mode(1)) oled_master (.clk(clk), .rst(rst), .en(oled_en), .miso(), .clr_ctrl(), .data2trans(data2trans),
+    .clr(), .ss(oled_cs), .sclk(oled_sclk), .mosi(mosi), .data_rec());
     
+    assign leds=data_rec[9:2];
+    
+    clkdiv #(.div(20)) divider(.clk(clk), .rst(rst), .en(oled_en));
+     
+    fsm_init oled_init(.clk(clk), .rst(rst), .en(1), .out(init_done),
+     .vdd(oled_vdd), .res(oled_res), .vbat(oled_vbat),
+     .oled_en(oled_en), .oled_fin(spi_fin), .oled_data(data2trans));
 endmodule
