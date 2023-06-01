@@ -1,5 +1,5 @@
-module spi #(parameter bits = 8) (input clk, rst, en, miso, clr_ctrl, input [bits-1:0] data2trans,
-output clr, ss, sclk, mosi, output reg [bits-1:0] data_rec);
+module spi #(parameter bits = 8, mode = 0) (input clk, rst, en, miso, clr_ctrl, input [bits-1:0] data2trans,
+output clr, ss, sclk, mosi, output reg [bits-1:0] data_rec, output reg fin);
 //Parametry czasu trwania:
 //m - czas jednego bitu (w połowie zbocze opadające sclk)
 //d - opóźnienia na początku
@@ -14,6 +14,14 @@ logic [bits-1:0] shr;
 logic [bm-1:0] cnt;
 logic [bdcnt:0] dcnt;
 logic tmp, tm, cnten;
+
+always @(posedge clk, posedge rst) begin
+    fin <= 1'b0;
+    if(rst)
+        fin <= 1'b0;
+    else if((dcnt == {(bdcnt+1){1'd0}}))
+        fin <= 1'b1;
+    end
 
 always @(posedge clk, posedge rst)
     if(rst)
@@ -44,6 +52,8 @@ always @(posedge clk, posedge rst)
             cnt <= {bm{1'b0}};
         else
             cnt <= cnt + 1'b1;
+// zakonczenie transmisji
+//assign fin = (st == progr)?1'b0:1'b1;
 //logika sygnałów wyjściowych
 assign clr = (st == shdown)?1'b1:1'b0;
 //chip select
@@ -72,8 +82,8 @@ assign mosi = shr[bits-1];
 always @(posedge clk, posedge rst)
     if(rst)
         shr <= {bits{1'b0}};
-    //else if(en)
-    //    shr <= data2trans;
+    else if(en && mode)
+        shr <= data2trans;
     else if(spi_en)
         shr <= {shr[bits-2:0],miso};
     //generator zezwolenia zapisu na wyjście
@@ -87,7 +97,7 @@ assign en_out = ss & ~tm;
 always @(posedge clk, posedge rst)
     if(rst)
         data_rec <= {bits{1'b0}};
-    else if(en_out)
+    else if(en_out && ~mode)
         data_rec <= shr;
     //rejestr wyjściowy
 endmodule
