@@ -3,8 +3,15 @@
 typedef enum {In_Idle, In_Decision, In_Spi, In_Power,
  In_WaitPre, In_Delay, In_Clear, In_Done} init_state_t;
 
-    
-logic cmd_list[16] = {
+
+
+
+module fsm_init
+    (input clk, input rst, input en, output out,
+     output logic vdd, output logic res, output logic vbat,
+     input oled_fin, output logic oled_en, output logic [7:0] oled_data);
+     
+    logic [8:0] cmd_list[16] = {
     9'h100, 9'h0AE,
     9'h102, 9'h103,
     9'h08D, 9'h014,
@@ -13,8 +20,136 @@ logic cmd_list[16] = {
     9'h00F, 9'h0A1,
     9'h0C8, 9'h0DA,
     9'h020, 9'h0AF
-};
+    };  
 
+     
+    logic delay_fin, delay_en, delay_rst;
+    logic [4:0] cnt_cmd;
+    logic [8:0] cmd;
+    logic fin;
+    logic [8:0] spi_max = 8;
+
+    localparam nbcmd = 16;
+    init_state_t curr_state, next_state;
+    
+    assign out = fin;
+    
+    
+    delay #(.delay_ms(1)) waiter(.clk(clk), .rst(delay_rst), .en(delay_en), .out(delay_fin));
+
+
+// fsm
+    always @* begin
+        case(curr_state)
+            In_Idle: begin
+                fin = 1'b0;
+
+                if(en || cnt_cmd) next_state = In_Decision;
+            end
+            In_Decision: 
+                if(cmd[8] == 1'b0) begin
+                    next_state = In_Spi;
+                end
+                else if(cmd[8] == 1'b1)
+                    next_state = In_Power;
+            In_Spi: begin
+                if(oled_fin) begin
+                    next_state = In_Clear;
+                end
+            end
+            In_Power: begin
+                case (cmd)
+                    9'h100: vdd = 1'b0;
+                    9'h102: res = 1'b0;
+                    9'h103: res = 1'b1;
+                    9'h104: vbat = 1'b0;
+                endcase
+                next_state = In_WaitPre;
+            end
+            In_WaitPre: begin
+                if(cmd != 9'h103)begin 
+                    spi_max = (cmd == 9'h104) ? 100 : 1;
+                    delay_rst = 1'b1;
+                    delay_en = 1'b1;
+                    next_state = In_Delay;
+                end
+                else begin 
+                    next_state = In_Clear;
+                end
+            end
+            In_Delay: begin
+                delay_rst = 1'b0;
+                if(delay_fin) begin
+                    delay_en = 1'b0;
+                    next_state = In_Clear;
+                end
+            end
+            In_Clear: 
+                if(cnt_cmd < nbcmd-1) begin
+                    next_state = In_Idle;
+                end
+                else next_state = In_Done;
+            In_Done: begin
+                fin = 1'b1;
+                cnt_cmd = 1'b0;
+                if(~en) next_state = In_Idle;
+            end
+        endcase
+    end
+
+    always @(posedge clk, posedge rst) begin
+        if(rst) cnt_cmd <= 5'b0;
+        else if(curr_state == In_Clear) begin
+            if(cnt_cmd < nbcmd-1)
+                    cnt_cmd <= cnt_cmd + 1'b1;
+        end
+    end
+
+    always @(posedge clk, posedge rst)
+        if(rst) oled_data <= 8'b0;
+        else if( curr_state == In_Spi) oled_data <= cmd;
+
+
+    always @(posedge clk, posedge rst) begin
+        if(rst) begin
+            oled_en <= 1'b0;  
+        end
+        else if(curr_state == In_Spi && ~oled_fin) begin
+                oled_en <= 1'b1;
+            end
+        else oled_en <= 1'b0;  
+    end
+
+
+    always @(posedge clk, posedge rst) begin
+        if(rst) begin
+            curr_state <= In_Idle;
+        end
+        else
+            curr_state <= next_state;     
+    end
+
+           
+// cmd
+    always @(posedge clk, posedge rst) begin
+        if(rst) cmd <= cmd_list[0];
+        else    cmd <= cmd_list[cnt_cmd];
+    end
+
+endmodule
+
+
+
+
+    // en - potrzebne do licznika bitow - uruchomienie transmisji
+    // miso - input
+    // clr_ctrl, clr - niepotrzebne
+    // ss, sclk - generowane przez slave przy transmisji
+    // fin - informuje o zakonczeniu transmisji
+    // mosi - output
+    // data_rec - input
+    // data2trans  - niestosowane
+    // DO SPI
 
     // ========== SPI ===============
     // h0ae - 1010111x gdzie x = 0 display off
@@ -24,7 +159,7 @@ logic cmd_list[16] = {
     //                gdzie ab = 01 - vertical addr mode
     //                gdzie ab = 10 - page addr mode (reset)
     //                gdzie ab = 11 - invalid
-    // h014 - 0001abcd gdzie abcd = 0000 - (reset) set higher column for start address in page addressing mode
+    // h014 - 0001abcd gdzie abcd = 0000 - (reset) set higher column for start address in page addrespushg mode
     // h0da - 11011010 ?
     //        - 00ab0010 gdzie a = 0 - reset, disable com left/right remap
     //                          a = 1 - enable com left/right map
@@ -47,128 +182,3 @@ logic cmd_list[16] = {
 //logic values[16] = {
 //    
 //};
-
-
-// output dc ?
-module fsm_init(input clk, input rst, input en, output out, vdd, res, vbat);
-    logic vdd, res, vbat;
-    logic spi_fin, delay_fin, delay_en, delay_rst;
-    logic cnt_cmd;
-    logic [8:0] cmd;
-    logic spi_en, spi_en_r; // czy jest ot potrzebne????
-    logic fin;
-    logic cs, s;
-
-    localparam nbcmd = 16;
-    init_state_t curr_state, next_state;
-    
-    localparam delay_ms = 1;
-    localparam bits = 8;
-    logic clr_ctrl, clr;
-    logic [bits-1:0] data2trans;
-    wire [bits-1:0] data_rec;
-    reg [bits-1:0] sh_reg;
-    
-
-    assign out = fin;
-    assign s = cs;
-    assign spi_en = spi_en_r;
-    
-    // do poprawy
-    // data2transfer nie jest wypelniane
-    // transmisja nie jest odpowiednio kontrolowana
-    // en odpowiada za potwierdzenie wpisu do pamieci
-    spi #(.bits(bits)) master_oled (.clk(clk), .rst(rst), .en(spi_en), .miso(), .clr_ctrl(clr_ctrl), .data2trans(data2trans),
-    .clr(clr), .ss(s), .sclk(sclk), .mosi(mosi), .data_rec(data_rec));
-    
-    clkdiv #(.div(20)) divider(.clk(clk), .rst(rst), .en(spi_en));
-    
-    
-
-    delay #(.delay_ms(delay_ms)) waiter(.clk(clk), .rst(delay_rst), .en(delay_en), .out(delay_fin));
-
-
-    always @*
-        case(curr_state)
-            In_Idle: begin
-                fin = 1'b0;
-                if(en || cmd) next_state = In_Decision;
-            end
-            In_Decision: 
-                if(cmd[8] == 0) begin
-                    cs = 1'b0;
-                    next_state = In_Spi;
-                end
-                else if(cmd[8] == 1)
-                    next_state = In_Power;
-            In_Spi: begin
-                spi_en_r = 1'b1;
-                if(spi_fin) begin
-                    spi_en_r = 1'b0;
-                    cs = 1'b1;
-                    next_state = In_Clear;
-                end
-            end
-            In_Power: begin
-                case (cmd)
-                    9'h100: vdd = 1'b0;
-                    9'h102: res = 1'b1;
-                    9'h103: res = 1'b0;
-                    9'h104: vbat = 1'b0;
-                endcase
-                next_state = In_WaitPre;
-            end
-            In_WaitPre: begin
-                if(cmd != 9'h103)begin 
-                    //delay_ms = (cmd == 9'h104) ? 100 : 1;
-                    next_state = In_Delay;
-                    delay_rst = 1'b1;
-                    delay_en = 1'b1;
-                end
-                else begin 
-                    next_state = In_Clear;
-                end
-            end
-            In_Delay: begin
-                delay_rst = 1'b0;
-                if(delay_fin) begin
-                    delay_en = 1'b0;
-                    next_state = In_Clear;
-                end
-            end
-            In_Clear: if(cnt_cmd < nbcmd) next_state = In_Done;
-                        else cnt_cmd = cnt_cmd + 1'b1;
-            In_Done: begin
-                fin = 1'b1;
-                cnt_cmd = 1'b0;
-                if(~en) next_state = In_Idle;
-            end
-        endcase
-
-
-    always @* begin
-        if(rst) cmd <= cmd_list[0];
-        else    cmd <= cmd_list[cnt_cmd];
-    end
-
-
-    always @(posedge clk, posedge rst) begin
-        if(rst) begin
-            cnt_cmd <= 0;
-            curr_state <= In_Idle;
-            cs = 1'b1;
-        end
-        else
-            curr_state <= next_state;     
-    end
-
-    logic [5:0] cnt_spi;
-    localparam max_spi = 32;
-    always @(posedge clk, posedge rst, posedge sclk) begin
-        if(rst) cnt_spi = 0;
-        if(sclk) 
-            if(cnt_spi < max_spi) cnt_spi = cnt_spi + 1;
-            else cnt_spi = 0;
-    end
-
-endmodule

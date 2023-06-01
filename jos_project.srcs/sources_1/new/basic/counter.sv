@@ -1,27 +1,19 @@
 `timescale 1ns / 1ps
 
 
-// do poprawy
-module counter #(parameter slow_clk=2**16, dl=15, nbt=2)(
-    input clk, rst, butt_add, butt_sub,
-    output [7:0] leds);
+module shreg #(parameter size = 8) (
+    input clk, rst, en, push,
+    output [size-1:0] out_reg
+    );
     
-
-    logic [nbt-1:0] butt_deb;
-    wire [nbt-1:0] butt_in = {butt_add, butt_sub};
-    
-    wire plus = butt_deb[0];
-    wire minus = butt_deb[1];
-    
-    logic [7:0] cnt;
-    assign leds = cnt;
-    
-    always @(posedge clk)
+    logic [size-1:0] shr;    
+        
+    always @(posedge clk, posedge rst)
         if(rst)
-            cnt <= 8'b0;
-        else if (plus)
-            cnt <= cnt + 1'b1;
-        else if (minus)
-            cnt <= cnt - 1'b1;
-            
+            shr <= {size {1'b0}};
+        else if(en)
+            shr <= { shr[size-2:0], push };
+    
+    assign out_reg = shr;
+       
 endmodule
