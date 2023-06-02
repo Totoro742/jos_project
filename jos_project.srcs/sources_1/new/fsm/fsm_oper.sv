@@ -5,7 +5,7 @@ typedef enum {idle, screen, page, page_init, send_char,
 
 
 module fsm_oper(input clk, input rst, input en, output fin, output logic dc,
-                input spi_fin, output logic spi_en, output logic [7:0] oled_data);
+                input spi_fin, output logic [7:0] spi_data);
     
     `include "screen.vh"
 
@@ -15,9 +15,9 @@ module fsm_oper(input clk, input rst, input en, output fin, output logic dc,
     reg[11:0] del1s = 12'd1000;
     reg [7:0] current[0:3][0:15];
     reg addr;
-    reg spi_data_data;
+    reg [7:0] spi_data_data;
     reg delay_ms;
-
+    wire [7:0] spi_data_cmd;
     reg [1:0] cnt_screen;
     reg [2:0] cnt_page;
     reg [4:0] cnt_ind;
@@ -26,9 +26,13 @@ module fsm_oper(input clk, input rst, input en, output fin, output logic dc,
     
     oper_state_t curr_state, next_state;
     
-    update_page pager(.clk(clk), .rst(pager_rst), .en(pager_en), .fin(page_fin), .dc(up_dc));
+    update_page page_row (.clk(clk), .rst(rst), .en(page_en), .spi_fin(spi_fin), .page(cnt_page[1:0]), 
+	.dc(page_fin), .spi_en(up_spi_en), .spi_data(spi_data_cmd));;
     
     rom CHAR_LIB_COM(.clk(clk), .en(romen), .addr(addr), .dataout(romout));
+    
+    assign spi_data = dc?spi_data_data:spi_data_cmd;
+
     assign romen = (curr_state == read_mem);
     assign fin = (curr_state == done);
     

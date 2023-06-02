@@ -1,79 +1,82 @@
 `timescale 1ns / 1ps
 
-typedef enum {Up_Idle, Up_ClearDC1, Up_ClearDC2, Up_SendCmd,
- Up_Spi1, Up_Spi2, Up_Back} update_state_t;
+module update_page(input clk, rst, en, spi_fin, input [1:0] page, output reg dc, spi_en, output [7:0] spi_data);
+
+localparam nbcmd = 4;
+localparam reg [7:0] cmd[0:3] = '{8'h22, 8'h00, 8'h00, 8'h10};
+
+typedef enum {idle, ClearDC, SendCmd, SetDC, Transition1, Transition2, Transition5} states_e;
+states_e st, nst;
+
+reg [2:0] cmd_cnt;
+
+//Update Page states
+			//1. Sets DC to command mode
+			//2. Sends the SetPage Command
+			//3. Sends the Page to be set to
+			//4. Sets the start pixel to the left column
+			//5. Sets DC to data mode
+			
+assign spi_data = (cmd_cnt == 2'd1)?{cmd[cmd_cnt][7:2],page}:cmd[cmd_cnt];
 
 
-module update_page(input clk, input rst, input en, output fin, output logic dc, input logic [2:0] page,
-                    input spi_fin, output logic spi_en, output logic [7:0] oled_data);
-    
-    localparam nbcmd = 4;
-    logic [7:0] cmd_list = {
-        8'h22, 
-        {4'h0, page},
-        8'h00,
-        8'h10
-    };
+always @(posedge clk, posedge rst)
+if(rst)
+	cmd_cnt <= 3'b0;
+else	if (st == Transition5)
+		cmd_cnt <= cmd_cnt + 1;
+	else if (st == SetDC | st == ClearDC)
+		cmd_cnt <= 3'b0;
 
-    logic [3:0] cnt_cmd;
-//    logic spi_fin;
-    update_state_t curr_state, next_state;
+		always @(posedge clk, posedge rst)
+			if(rst)
+				st <= idle;
+			else
+				st <= nst;
 
-    always @(posedge clk, posedge rst) begin
-        if(rst) oled_data <= 8'b0;
-        else if(curr_state == Up_Spi1) oled_data <= cmd_list[cnt_cmd];
-        else oled_data <= 8'b0;
-    end
+		always @* begin
+		nst = idle;
+		dc = 1'b0;
+		case(st)
+			idle : nst = en?ClearDC:idle;
+			ClearDC : begin
+					//dc = 1'b0;
+					nst = SendCmd;
+			end
 
-    always @(posedge clk, posedge rst) begin
-        if(rst) spi_en <= 1'b0;
-        else if(curr_state == Up_Spi1 && ~spi_fin) spi_en <= 1'b1;
-        else if(curr_state == Up_Spi2 && ~spi_fin) spi_en <= 1'b1;
-        else spi_en <= 1'b0;
-    end
+			SendCmd : if (cmd_cnt < nbcmd) 
+					nst = Transition1;
+			else
+				nst = SetDC;
 
-    always @(posedge clk, posedge rst) begin
-        if(rst) cnt_cmd <= {4 {1'b0}};
-        else if(cnt_cmd == nbcmd) cnt_cmd <= {4 {1'b0}};
-        else if(curr_state == Up_Spi2 && spi_fin) cnt_cmd <= cnt_cmd + 1'b1;
-    end
+			SetDC : begin
+					dc = 1'b1;
+					nst = idle;
+			end
+// SPI transitions
+			// 1. Set SPI_EN to 1
+			// 2. Waits for SpiCtrl to finish
+			// 3. Goes to clear state (Transition5)
+			Transition1 : nst = Transition2;
 
-    always @*    
-        case(curr_state)
-            Up_Idle: if(en) next_state = Up_ClearDC1;
-            Up_ClearDC1: next_state = Up_SendCmd;
-            Up_ClearDC2: next_state = Up_Idle;
-            Up_SendCmd: begin
-                if(cnt_cmd < nbcmd)
-                    next_state = Up_Spi1;
-                next_state = Up_ClearDC2; 
-                end
-            Up_Spi1: begin
-                //spi_en = 1'b1; 
-                if(spi_fin) begin
-                  //  spi_en = 1'b0; 
-                    next_state = Up_Spi2;
-                end
-            end
-            Up_Spi2: begin
-                //spi_en = 1'b1; 
-                if(spi_fin) begin
-                    //spi_en = 1'b0; 
-                    next_state = Up_Back;
-                end
-            end
-            Up_Back: next_state = Up_Idle;
-        endcase
+			Transition2 : if(spi_fin) 
+						nst = Transition5;
+					else
+						nst = Transition2;
+// Clear transition
+			// 1. Sets both DELAY_EN and SPI_EN to 0
+			// 2. Go to after state
+			Transition5 : nst = SendCmd;
+		endcase
+	end
 
-
-    always @(posedge clk) begin
-        if(curr_state == Up_Spi1) dc <= 0;
-        else if(curr_state == Up_Spi2) dc <= 1;
-    end
-
-    always @(posedge clk, posedge rst) begin
-        if(rst) curr_state <= Up_Idle;
-        else    curr_state <= next_state;     
-    end
+always @(posedge clk, posedge rst)
+if(rst)
+	spi_en <= 1'b0;
+else begin
+	if (st == Transition1) spi_en <= 1'b1;
+	if (st == Transition5) spi_en <= 1'b0;
+end
 
 endmodule
+

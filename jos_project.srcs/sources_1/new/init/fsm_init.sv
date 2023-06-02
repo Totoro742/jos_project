@@ -1,184 +1,126 @@
 `timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+module fsm_init #(parameter modn = 100_000, delvbat = 100) (input clk, rst, en, 
+    output reg dc, fin, res, sclk, sdo, vbat, vdd);      
 
-typedef enum {In_Idle, In_Decision, In_Spi, In_Power,
- In_WaitPre, In_Delay, In_Clear, In_Done} init_state_t;
+localparam nbcmd = 16;
+localparam N = $clog2(nbcmd);
+localparam del1ms = 8'h01;
+localparam del100ms = 8'h64;
+localparam VddOn = 9'h100, RstOn = 9'h102, RstOff = 9'h103, VbatOn = 9'h104;
+localparam reg [8:0] cmd_list[0:nbcmd-1] = '{VddOn, 9'h0AE, RstOn, RstOff, 9'h8D, 8'h14, 8'hD9, 8'hF1, VbatOn, 8'h81, 8'h0F, 8'hA1, 8'hC8, 8'hDA, 8'h20, 8'hAF};
+//    '{VddOn, del1ms, 9'h0AE, RstOn, del1ms, RstOff, 9'h8D, 8'h14, 8'hD9, 8'hF1, VbatOn, del100ms, 8'h81, 8'h0F, 8'hA1, 8'hC8, 8'hDA, 8'h20, 8'hAF};
+ //, 8'hA5};
 
-
-
-
-module fsm_init
-    (input clk, input rst, input en, output out,
-     output logic vdd, output logic res, output logic vbat,
-     input oled_fin, output logic oled_en, output logic [7:0] oled_data);
-     
-    logic [8:0] cmd_list[16] = {
-    9'h100, 9'h0AE,
-    9'h102, 9'h103,
-    9'h08D, 9'h014,
-    9'h0D9, 9'h0F1,
-    9'h104, 9'h081,
-    9'h00F, 9'h0A1,
-    9'h0C8, 9'h0DA,
-    9'h020, 9'h0AF
-    };  
-
-     
-    logic delay_fin, delay_en, delay_rst;
-    logic [4:0] cnt_cmd;
-    logic [8:0] cmd;
-    logic fin;
-    logic [8:0] spi_max = 8;
-
-    localparam nbcmd = 16;
-    init_state_t curr_state, next_state;
-    
-    assign out = fin;
-    
-    
-    delay #(.delay_ms(1)) waiter(.clk(clk), .rst(delay_rst), .en(delay_en), .out(delay_fin));
+typedef enum {Idle, Decision, Power, WaitPre, Delay, Clear, Spi, Done} fsmst_e;
+fsmst_e current_state, next_state;
 
 
-// fsm
-    always @* begin
-        case(curr_state)
-            In_Idle: begin
-                fin = 1'b0;
+reg [7:0] temp_delay_ms;
+reg temp_delay_en;
+//wire temp_delay_fin;
+reg temp_spi_en;
+//reg [7:0] spi_data;
+//wire temp_spi_fin;
+reg [N-1:0] cnt_cmd;
+//reg [1:0] tmp;
+reg [8:0] cmd;
 
-                if(en || cnt_cmd) next_state = In_Decision;
-            end
-            In_Decision: 
-                if(cmd[8] == 1'b0) begin
-                    next_state = In_Spi;
-                end
-                else if(cmd[8] == 1'b1)
-                    next_state = In_Power;
-            In_Spi: begin
-                if(oled_fin) begin
-                    next_state = In_Clear;
-                end
-            end
-            In_Power: begin
-                case (cmd)
-                    9'h100: vdd = 1'b0;
-                    9'h102: res = 1'b0;
-                    9'h103: res = 1'b1;
-                    9'h104: vbat = 1'b0;
-                endcase
-                next_state = In_WaitPre;
-            end
-            In_WaitPre: begin
-                if(cmd != 9'h103)begin 
-                    spi_max = (cmd == 9'h104) ? 100 : 1;
-                    delay_rst = 1'b1;
-                    delay_en = 1'b1;
-                    next_state = In_Delay;
-                end
-                else begin 
-                    next_state = In_Clear;
-                end
-            end
-            In_Delay: begin
-                delay_rst = 1'b0;
-                if(delay_fin) begin
-                    delay_en = 1'b0;
-                    next_state = In_Clear;
-                end
-            end
-            In_Clear: 
-                if(cnt_cmd < nbcmd-1) begin
-                    next_state = In_Idle;
-                end
-                else next_state = In_Done;
-            In_Done: begin
-                fin = 1'b1;
-                cnt_cmd = 1'b0;
-                if(~en) next_state = In_Idle;
-            end
-        endcase
-    end
+/*module spi #(parameter bits = 8, mode = 0) (input clk, rst, en, miso, clr_ctrl, input [bits-1:0] data2trans,
+output clr, ss, sclk, mosi, output reg [bits-1:0] data_rec, output reg fin);*/
 
-    always @(posedge clk, posedge rst) begin
-        if(rst) cnt_cmd <= 5'b0;
-        else if(curr_state == In_Clear) begin
-            if(cnt_cmd < nbcmd-1)
-                    cnt_cmd <= cnt_cmd + 1'b1;
-        end
-    end
-
-    always @(posedge clk, posedge rst)
-        if(rst) oled_data <= 8'b0;
-        else if( curr_state == In_Spi) oled_data <= cmd;
+spi #(.bits(8), .mode(1)) SPI_COMP(.clk(clk), .rst(rst), .en(temp_spi_en), .data2trans(cmd[7:0]),
+		.mosi(sdo), .sclk(sclk), .fin(temp_spi_fin));
 
 
-    always @(posedge clk, posedge rst) begin
-        if(rst) begin
-            oled_en <= 1'b0;  
-        end
-        else if(curr_state == In_Spi && ~oled_fin) begin
-                oled_en <= 1'b1;
-            end
-        else oled_en <= 1'b0;  
-    end
+Delay #(.moduloN(modn), .nbits(8)) DELAY_COMP(.CLK(clk), .RST(rst), .DELAY_MS(temp_delay_ms), .DELAY_EN(temp_delay_en),
+		.DELAY_FIN(temp_delay_fin));
 
 
-    always @(posedge clk, posedge rst) begin
-        if(rst) begin
-            curr_state <= In_Idle;
-        end
-        else
-            curr_state <= next_state;     
-    end
+// State Machine regiter
+always @(posedge clk, posedge rst) 
+	if(rst) 
+		current_state <= Idle;
+	else 
+		current_state <= next_state;
+	
+always @* begin
+	next_state = Idle;
+	dc = 1'b0;
+	fin = 1'b0;
+	temp_spi_en = 1'b0;
+	temp_delay_en = 1'b0;
+	case(current_state)
+		Idle :  if(en) next_state = Decision;
+		Decision : if(cmd[8])
+		      next_state = Power;
+		   else
+		      next_state = Spi;
+		Power : next_state = WaitPre;
+		WaitPre : if (cmd == RstOff)
+		      next_state = Clear;
+		  else 
+		      next_state = Delay;
+		Delay : begin
+			temp_delay_en = 1'b1;
+			if(temp_delay_fin) 
+				next_state = Clear;
+			else
+				next_state = Delay;
+		end
+		Clear : if (cnt_cmd == nbcmd-1)
+		          next_state = Done;
+		      else
+		          next_state = Idle;  
+		Spi : begin
+		     temp_spi_en = 1'b1;
+			if(temp_spi_fin) 
+					next_state = Clear;
+			else
+				next_state = Spi;
+		end
+		Done : begin
+			if(~en) 
+				next_state = Idle;
+			else begin
+				fin = 1'b1;
+				next_state = Done;
+			end
+		end
+	endcase
+end
 
-           
-// cmd
-    always @(posedge clk, posedge rst) begin
-        if(rst) cmd <= cmd_list[0];
-        else    cmd <= cmd_list[cnt_cmd];
-    end
+//assign spi_data = (current_state == Spi)?cmd:8'b0;
+
+always @(posedge clk, posedge rst) 
+	if(rst) 
+	   temp_delay_ms <= del1ms;
+	else
+	   if (~vbat) temp_delay_ms <= del1ms;
+	   else temp_delay_ms <= del100ms;
+	   
+always @(posedge clk, posedge rst) 
+	if(rst) begin vdd <= 1'b1; res <= 1'b1; vbat <= 1'b1; end
+	else	  case(cmd)
+                        9'h100: vdd <= 1'b0; 
+                        9'h102: res <= 1'b0;
+                        9'h103: res <= 1'b1;
+                        9'h104: vbat <= 1'b0;
+               endcase
+
+always @(posedge clk, posedge rst) 
+	if(rst) 
+		cnt_cmd <= 4'b0;
+	else if(cnt_cmd == nbcmd)
+			cnt_cmd <= 4'b0;
+		else if (current_state == Clear)
+				cnt_cmd <= cnt_cmd + 1;
+
+always @(posedge clk, posedge rst) 
+	if(rst) 
+	       cmd <= 9'h0;
+	else if((current_state == Idle) & en)
+	       cmd <= cmd_list[cnt_cmd];;
 
 endmodule
 
-
-
-
-    // en - potrzebne do licznika bitow - uruchomienie transmisji
-    // miso - input
-    // clr_ctrl, clr - niepotrzebne
-    // ss, sclk - generowane przez slave przy transmisji
-    // fin - informuje o zakonczeniu transmisji
-    // mosi - output
-    // data_rec - input
-    // data2trans  - niestosowane
-    // DO SPI
-
-    // ========== SPI ===============
-    // h0ae - 1010111x gdzie x = 0 display off
-    // h0af - 1010111x gdzie x = 1 display on
-    // h0a1 - 1010000x gdzie x = 0 (reset) adres 0 jest zamapowany na seg0    
-    // h020 - 001000ab gdzie ab = 00 - horizontal addr mode
-    //                gdzie ab = 01 - vertical addr mode
-    //                gdzie ab = 10 - page addr mode (reset)
-    //                gdzie ab = 11 - invalid
-    // h014 - 0001abcd gdzie abcd = 0000 - (reset) set higher column for start address in page addrespushg mode
-    // h0da - 11011010 ?
-    //        - 00ab0010 gdzie a = 0 - reset, disable com left/right remap
-    //                          a = 1 - enable com left/right map
-    //                          b = 0 - sequentail com pin configuration
-    //                          b = 1 - reset, alterenatirve com left/right remap
-    // h0c8 - 1100x000 gdzie x = 1 - remap mode. scan from com[n-1] to com0 (n - multiplex ratio)
-    // h00f - 0000abcd gdzie abcd - 0000 - on reset, set lower nibble of the column start address register for page ddress mode
-    // h081 - 10000001
-    //          -abcdefgh - set contrast value reset = 0x7h
-    // h0f1 - ?? - wyglada ze jest to opisane w 0d9
-    // h0d9 - 11011011
-    //          abcdefgh - abcd - dlugosc fazy 1 przed naladowaniem 1-15 cykli zegara
-    //                      efgh -||- 2 -||- - reset w oby 0x02
-    // h08d - 10001101
-    //          **010x00 gdzie x - 0 disable charge pump (reset)
-    //                              1 enable charge pump during display on
-
-
-
-//logic values[16] = {
-//    
-//};
