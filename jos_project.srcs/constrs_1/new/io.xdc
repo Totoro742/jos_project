@@ -9,7 +9,6 @@ set_property PACKAGE_PIN Y11  [get_ports {cs}];  # "JA1"
 set_property PACKAGE_PIN AA11 [get_ports {datain0}];  # "JA2"
 set_property PACKAGE_PIN Y10  [get_ports {datain1}];  # "JA3"
 set_property PACKAGE_PIN AA9  [get_ports {sclk}];  # "JA4"
-set_property PACKAGE_PIN R16 [get_ports {enable}];  # "BTND"
 # ----------------------------------------------------------------------------
 # OLED Display - Bank 13
 # ---------------------------------------------------------------------------- 

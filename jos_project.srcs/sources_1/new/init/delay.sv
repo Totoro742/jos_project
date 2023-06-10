@@ -20,9 +20,10 @@ module Delay #(parameter moduloN = 100_000, nbits = 12)
     output DELAY_FIN);
     
     localparam Idle=2'b00, Hold=2'b01, Done=2'b11;
+    
     localparam size_div = $clog2(moduloN);
-	reg [1:0] current_state, next_state;   // Signal for state machine
-	reg [size_div-1:0] clk_counter;                // Counts up on every rising edge of CLK
+	reg [1:0] current_state, next_state;        // Signal for state machine
+	reg [size_div-1:0] clk_counter;             // Counts up on every rising edge of CLK
 	reg [nbits-1:0] ms_counter;                 // Counts up when clk_counter = 100,000
 
 
@@ -33,59 +34,42 @@ module Delay #(parameter moduloN = 100_000, nbits = 12)
 	
 	//  State Machine
 	always @(posedge CLK) 
-	// When RST is asserted switch to idle (synchronous)
-	if(RST) 
-	   current_state <= Idle;
-	else
-	   current_state <=	next_state; 
+        if(RST)  current_state <= Idle;
+        else     current_state <= next_state; 
 	   
 	always @* begin
-	next_state = Idle;
-	case(current_state)
-		Idle :
-			// Start delay on DELAY_EN
-			if(DELAY_EN) 
-				next_state = Hold;
-			else
-				next_state = Idle;
-							
-	   Hold : 
-            // Stay until DELAY_MS has occureddc
-			if(ms_counter == DELAY_MS) 
-				next_state = Done;
-			else
-                next_state = Hold;
-							
-		Done : 
-			// Wait until DELAY_EN is deasserted to go to IDLE
-			if(~DELAY_EN) 
-                next_state = Idle;
-			else
-                next_state = Hold;
-							
-			default : next_state = Idle;
-							
-	endcase
+        next_state = Idle;
+        case(current_state)
+            Idle :
+                if(DELAY_EN)  next_state = Hold;
+                else          next_state = Idle;
+           Hold : 
+                if(ms_counter == DELAY_MS) 
+                              next_state = Done;
+                else          next_state = Hold;            
+            Done : 
+                if(~DELAY_EN) next_state = Idle;
+                else          next_state = Hold;
+                                
+            default : next_state = Idle;
+                                
+        endcase
 	end
 	//  End State Machine
 
 
-	// Creates ms_counter that counts at 1KHz
 	always @(posedge CLK) 
-	if(RST) 
-	   ms_counter <= {nbits{1'b0}};
-	else 
-		if(current_state == Hold) begin
-			if(clk_counter == moduloN) 
-				ms_counter <= ms_counter + 1'b1;
-			end				// increments at 1KHz
-		else 
-			ms_counter <= {nbits{1'b0}};
+        if(RST)   ms_counter <= {nbits{1'b0}};
+        else 
+            if(current_state == Hold)
+                if(clk_counter == moduloN) 
+                    ms_counter <= ms_counter + 1'b1;
+            else 
+                ms_counter <= {nbits{1'b0}};
 
 	// CLK_DIV
 	always @(posedge CLK) 
-	if(RST) 
-	   clk_counter <= {size_div{1'b0}};
+	if(RST)   clk_counter <= {size_div{1'b0}};
 	else 
 		if(current_state == Hold) 
 			if(clk_counter == moduloN) 		// 100,000    17'b11000011010100000

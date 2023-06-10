@@ -9,10 +9,8 @@ module shreg #(parameter size = 8) (
     logic [size-1:0] shr;    
         
     always @(posedge clk, posedge rst)
-        if(rst)
-            shr <= {size {1'b0}};
-        else if(en)
-            shr <= { shr[size-2:0], push };
+        if(rst)            shr <= {size {1'b0}};
+        else if(en)        shr <= { shr[size-2:0], push };
     
     assign out_reg = shr;
        
