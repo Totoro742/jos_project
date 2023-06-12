@@ -72,7 +72,7 @@ module Delay #(parameter moduloN = 100_000, nbits = 12)
 	if(RST)   clk_counter <= {size_div{1'b0}};
 	else 
 		if(current_state == Hold) 
-			if(clk_counter == moduloN) 		// 100,000    17'b11000011010100000
+			if(clk_counter == moduloN)
 				clk_counter <= {size_div{1'b0}};
 			else 
 				clk_counter <= clk_counter + 1'b1;

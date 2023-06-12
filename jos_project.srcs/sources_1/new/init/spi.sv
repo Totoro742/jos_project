@@ -6,8 +6,8 @@ output ss, sclk, mosi, output reg [bits-1:0] data_rec, output reg fin);
     localparam bm = $clog2(m);       // rozmiar licznika czasu
     localparam bdcnt = $clog2(bits); // rozmiar licznika bitów
     
-    typedef enum {idle, shdown, progr, start} e_st;
-    e_st st, nst;
+    typedef enum {Idle, Progr, Start} e_st;
+    e_st current_state, next_state;
     
     logic [bits-1:0] shr;
     logic [bm-1:0] cnt;
@@ -17,21 +17,20 @@ output ss, sclk, mosi, output reg [bits-1:0] data_rec, output reg fin);
     
     
     always @(posedge clk, posedge rst)
-        if(rst)      st <= idle;
-        else         st <= nst;
+        if(rst)      current_state <= Idle;
+        else         current_state <= next_state;
     
     //logika automatu
     always @* begin
-        nst = idle;
+        next_state = Idle;
         cnten = 1'b1;
-        case(st)
-            idle: begin
+        case(current_state)
+            Idle: begin
                 cnten = 1'b0;
-                nst = en ? start : idle;
+                next_state = en ? Start : Idle;
             end
-            shdown: nst = (cnt == m-1) ? start : shdown;
-            start: nst = (cnt == d) ? progr : start;
-            progr: nst = (dcnt == {(bdcnt+1){1'd0}}) ? idle : progr;
+            Start: next_state = (cnt == d) ? Progr : Start;
+            Progr: next_state = (dcnt == {(bdcnt+1){1'd0}}) ? Idle : Progr;
         endcase
     end
     
@@ -56,7 +55,7 @@ output ss, sclk, mosi, output reg [bits-1:0] data_rec, output reg fin);
     
     
     //zegar transmisji
-    assign sclk = ((st == progr) & (cnt < (m/2 + 1))) ? 1'b1 : 1'b0;
+    assign sclk = ((current_state == Progr) & (cnt < (m/2 + 1))) ? 1'b1 : 1'b0;
     
     //detektor zbocza opadającego zegara transmisji
     always @(posedge clk, posedge rst)
@@ -82,7 +81,7 @@ output ss, sclk, mosi, output reg [bits-1:0] data_rec, output reg fin);
     
     
     //chip select
-    assign ss = ((st == start) | (st == progr)) ? 1'b0 : 1'b1;
+    assign ss = ((current_state == Start) | (current_state == Progr)) ? 1'b0 : 1'b1;
         
     //generator zezwolenia zapisu na wyjście
     always @(posedge clk, posedge rst)

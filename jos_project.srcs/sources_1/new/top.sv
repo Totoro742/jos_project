@@ -17,7 +17,7 @@ module top( input clk, rst, output wire [7:0] leds,
     reg spi_fin;
 	wire init_sclk; // niepotrzebne ???
 
-    top_state_t curr_state, next_state;
+    top_state_t current_state, next_state;
     
     spi #(.bits(bits), .mode(0)) ADC_master (.clk(clk), .rst(rst), .en(en), .miso(datain0), .data2trans(),
     .ss(cs), .sclk(sclk), .mosi(), .data_rec(data_rec), .fin());
@@ -58,16 +58,16 @@ module top( input clk, rst, output wire [7:0] leds,
 	);
 
 
-	assign oled_sdin = (curr_state == Init) ? init_sdo : data_sdo;
-	assign oled_dc = (curr_state == Init) ? init_dc : oper_dc;
+	assign oled_sdin = (current_state == Init) ? init_sdo : data_sdo;
+	assign oled_dc = (current_state == Init) ? init_dc : oper_dc;
 
-	assign init_en = (curr_state == Init) ? 1'b1 : 1'b0;
-	assign oper_en = (curr_state == Oper) ? 1'b1 : 1'b0;
+	assign init_en = (current_state == Init) ? 1'b1 : 1'b0;
+	assign oper_en = (current_state == Oper) ? 1'b1 : 1'b0;
 
 
     always @* begin
         next_state = Init;
-        case(curr_state)
+        case(current_state)
             Idle: if(en) next_state = Init;
             Init: if(init_done) next_state = Oper;
             Oper: if(oper_done) next_state = Done;
@@ -77,8 +77,8 @@ module top( input clk, rst, output wire [7:0] leds,
 
 
     always @(posedge clk, posedge rst) begin
-        if(rst)  curr_state <= Idle;
-        else     curr_state <= next_state;
+        if(rst)  current_state <= Idle;
+        else     current_state <= next_state;
     end     
     
      
