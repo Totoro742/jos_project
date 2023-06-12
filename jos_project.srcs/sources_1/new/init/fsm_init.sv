@@ -41,31 +41,31 @@ module fsm_init #(parameter modn = 100_000, delvbat = 100) (input clk, rst, en,
         temp_spi_en = 1'b0;
         temp_delay_en = 1'b0;
         case(current_state)
-            Idle :     if(en)      next_state = Decision;
+            Idle :     if(en)              next_state = Decision;
             Decision : if(cmd[8])	       next_state = Power;
                        else		           next_state = Spi;
-            Power :                next_state = WaitPre;
-            WaitPre : if (cmd == RstOff)   next_state = Clear;
-                      else      		   next_state = Delay;
+            Power :                        next_state = WaitPre;
+            WaitPre :  if (cmd == RstOff)  next_state = Clear;
+                       else      		   next_state = Delay;
             Delay : begin
-                temp_delay_en = 1'b1;
-                if(temp_delay_fin) 	next_state = Clear;
-                else				next_state = Delay;
-            end
-            Clear : if (cnt_cmd == nbcmd-1) next_state = Done;
-                  else           	        next_state = Idle;  
+                       temp_delay_en = 1'b1;
+                       if(temp_delay_fin)  next_state = Clear;
+                       else				   next_state = Delay;
+                    end
+            Clear :    if (cnt_cmd == nbcmd-1) next_state = Done;
+                       else           	       next_state = Idle;  
             Spi : begin
-                 temp_spi_en = 1'b1;
-                if(temp_spi_fin)    next_state = Clear;
-                else    			next_state = Spi;
-            end
+                       temp_spi_en = 1'b1;
+                       if(temp_spi_fin)    next_state = Clear;
+                       else    			   next_state = Spi;
+                  end
             Done : begin
-                if(~en)     next_state = Idle;
-                else begin
-                    fin = 1'b1;
-                    next_state = Done;
-                end
-            end
+                       if(~en)             next_state = Idle;
+                       else begin
+                           fin = 1'b1;
+                                           next_state = Done;
+                       end
+                   end
         endcase
     end
     
